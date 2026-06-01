@@ -1,0 +1,45 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: intake-service
+  config:
+    import: optional:classpath:application-db.yml
+  datasource:
+    hikari:
+      schema: intake_schema
+  jpa:
+    properties:
+      hibernate:
+        default_schema: intake_schema
+
+logging:
+  level:
+    com.platform.intake: DEBUG
+
+bulk:
+  upload:
+    dir: bulk
+    poll-interval-ms: 10000
+
+management:
+  endpoints:
+    enabled-by-default: true
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://host.docker.internal:4318/v1/traces}
+  metrics:
+    tags:
+      application: ${spring.application.name}

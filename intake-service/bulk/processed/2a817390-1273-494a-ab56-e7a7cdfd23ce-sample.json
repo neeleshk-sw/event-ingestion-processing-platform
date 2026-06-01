@@ -1,0 +1,45 @@
+[
+  {
+    "eventId": "550e8400-e29b-41d4-a716-446655440000",
+    "producerId": "producer-1",
+    "eventType": "ORDER_CREATED",
+    "receivedAt": "2026-02-20T16:50:00Z",
+    "metadata": {
+      "correlationId": "corr-123-abc",
+      "attempt": 1,
+      "attributes": {
+        "region": "US-EAST",
+        "priority": "HIGH",
+        "channel": "MOBILE"
+      }
+    },
+    "payload": {
+      "data": {
+        "orderId": "ORD-1001",
+        "amount": "125.50",
+        "currency": "USD"
+      }
+    }
+  },
+  {
+    "eventId": "660e8411-e29b-41d4-a716-446655441111",
+    "producerId": "producer-2",
+    "eventType": "USER_SIGNED_UP",
+    "receivedAt": "2026-02-20T16:51:00Z",
+    "metadata": {
+      "correlationId": "corr-456-def",
+      "attempt": 1,
+      "attributes": {
+        "region": "IN",
+        "priority": "HIGH",
+        "channel": "MOBILE"
+      }
+    },
+    "payload": {
+      "data": {
+        "userId": "USER-999",
+        "email": "user@example.com"
+      }
+    }
+  }
+]

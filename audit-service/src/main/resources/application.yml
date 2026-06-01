@@ -1,0 +1,42 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: audit-service
+  config:
+    import: optional:classpath:application-db.yml
+  datasource:
+    hikari:
+      schema: audit_schema
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: 6379
+      timeout: 2s
+
+  jpa:
+    properties:
+      hibernate:
+        default_schema: audit_schema
+
+management:
+  endpoints:
+    enabled-by-default: true
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://host.docker.internal:4318/v1/traces}
+  metrics:
+    tags:
+      application: ${spring.application.name}

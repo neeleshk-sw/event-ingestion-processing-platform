@@ -1,0 +1,41 @@
+# Maven build output
+target/
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# Eclipse / IDE
+.metadata/
+.classpath
+.project
+.factorypath
+.settings/
+.apt_generated/
+.springBeans
+bin/
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+bulk/pending/
+bulk/processed/
+bulk/failed/
+observability/loki-data/
+
+# Local env
+*.env
+.env

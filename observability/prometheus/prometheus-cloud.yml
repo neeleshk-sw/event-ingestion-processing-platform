@@ -1,0 +1,48 @@
+# Cloud-Ready Prometheus Configuration
+# Replaces host.docker.internal targets with ECS Service Connect DNS names
+# Used when deploying observability stack to ECS alongside microservices
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "intake-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["intake-service.event-platform.local:8081"]
+
+  - job_name: "validation-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["validation-service.event-platform.local:8082"]
+
+  - job_name: "normalization-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["normalization-service.event-platform.local:8083"]
+
+  - job_name: "enrichment-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["enrichment-service.event-platform.local:8084"]
+
+  - job_name: "routing-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["routing-service.event-platform.local:8085"]
+
+  - job_name: "delivery-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["delivery-service.event-platform.local:8086"]
+
+  - job_name: "recovery-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["recovery-service.event-platform.local:8087"]
+
+  - job_name: "audit-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["audit-service.event-platform.local:8088"]

@@ -1,0 +1,113 @@
+version: "3"
+
+services:
+  intake-service:
+    build:
+      context: .
+      dockerfile: intake-service/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/eventdb
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+      - SERVICE_VALIDATION_URL=http://validation-service:8082
+      - SERVICE_AUDIT_URL=http://audit-service:8088
+    networks:
+      - event-platform-network
+
+  validation-service:
+    build:
+      context: .
+      dockerfile: validation-service/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+      - SERVICE_NORMALIZATION_URL=http://normalization-service:8083
+      - SERVICE_AUDIT_URL=http://audit-service:8088
+    networks:
+      - event-platform-network
+
+  normalization-service:
+    build:
+      context: .
+      dockerfile: normalization-service/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+      - SERVICE_ENRICHMENT_URL=http://enrichment-service:8084
+      - SERVICE_AUDIT_URL=http://audit-service:8088
+    networks:
+      - event-platform-network
+
+  enrichment-service:
+    build:
+      context: .
+      dockerfile: enrichment-service/Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+      - SERVICE_ROUTING_URL=http://routing-service:8085
+      - SERVICE_AUDIT_URL=http://audit-service:8088
+    networks:
+      - event-platform-network
+
+  routing-service:
+    build:
+      context: .
+      dockerfile: routing-service/Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/eventdb
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+      - SERVICE_DELIVERY_URL=http://delivery-service:8086
+      - SERVICE_AUDIT_URL=http://audit-service:8088
+    networks:
+      - event-platform-network
+
+  delivery-service:
+    build:
+      context: .
+      dockerfile: delivery-service/Dockerfile
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/eventdb
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+    networks:
+      - event-platform-network
+
+  recovery-service:
+    build:
+      context: .
+      dockerfile: recovery-service/Dockerfile
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/eventdb
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+    networks:
+      - event-platform-network
+
+  audit-service:
+    build:
+      context: .
+      dockerfile: audit-service/Dockerfile
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/eventdb
+      - SPRING_DATA_REDIS_HOST=redis
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces
+    networks:
+      - event-platform-network
+
+networks:
+  event-platform-network:
+    external: true

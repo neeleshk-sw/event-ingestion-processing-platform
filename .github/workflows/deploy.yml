@@ -1,0 +1,149 @@
+name: Build & Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'intake-service/**'
+      - 'validation-service/**'
+      - 'normalization-service/**'
+      - 'enrichment-service/**'
+      - 'routing-service/**'
+      - 'delivery-service/**'
+      - 'recovery-service/**'
+      - 'audit-service/**'
+      - 'common/**'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: event-platform-prod
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          SERVICES=()
+          
+          # If common module changed, rebuild all services
+          if echo "$CHANGED_FILES" | grep -q "^common/"; then
+            SERVICES=("intake-service" "validation-service" "normalization-service" "enrichment-service" "routing-service" "delivery-service" "recovery-service" "audit-service")
+          else
+            for svc in intake-service validation-service normalization-service enrichment-service routing-service delivery-service recovery-service audit-service; do
+              if echo "$CHANGED_FILES" | grep -q "^${svc}/"; then
+                SERVICES+=("$svc")
+              fi
+            done
+          fi
+          
+          # Convert to JSON array
+          JSON_SERVICES=$(printf '%s\n' "${SERVICES[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "services=${JSON_SERVICES}" >> $GITHUB_OUTPUT
+          echo "Changed services: ${JSON_SERVICES}"
+
+  build-and-deploy:
+    name: Build & Deploy ${{ matrix.service }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: |
+          mvn clean package -DskipTests -pl ${{ matrix.service }} -am -B
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/event-platform-prod-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image
+        id: build-image
+        run: |
+          IMAGE_TAG="${{ github.sha }}"
+          FULL_IMAGE="${{ env.ECR_REGISTRY }}/event-platform/${{ matrix.service }}:${IMAGE_TAG}"
+          
+          docker build \
+            -f ${{ matrix.service }}/Dockerfile \
+            -t ${FULL_IMAGE} \
+            .
+          
+          docker push ${FULL_IMAGE}
+          echo "image=${FULL_IMAGE}" >> $GITHUB_OUTPUT
+          echo "Pushed: ${FULL_IMAGE}"
+
+      - name: Update ECS task definition
+        id: task-def
+        run: |
+          # Get current task definition
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition event-platform-prod-${{ matrix.service }} \
+            --query 'taskDefinition' \
+            --output json)
+          
+          # Update image in container definition
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+            --arg IMAGE "${{ steps.build-image.outputs.image }}" \
+            '.containerDefinitions[0].image = $IMAGE |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+          
+          # Register new task definition
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          echo "task-definition-arn=${NEW_ARN}" >> $GITHUB_OUTPUT
+          echo "Registered: ${NEW_ARN}"
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ matrix.service }} \
+            --task-definition ${{ steps.task-def.outputs.task-definition-arn }} \
+            --force-new-deployment
+          
+          echo "Deploying ${{ matrix.service }} to ECS..."
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ matrix.service }} \
+            --timeout 600
+          
+          echo "${{ matrix.service }} deployment complete!"

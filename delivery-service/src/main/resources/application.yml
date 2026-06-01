@@ -1,0 +1,45 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: delivery-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  config:
+    import: optional:classpath:application-db.yml
+  datasource:
+    hikari:
+      schema: delivery_schema
+  jpa:
+    properties:
+      hibernate:
+        default_schema: delivery_schema
+
+delivery:
+  queue:
+    poll-interval-ms: 5000
+
+management:
+  endpoints:
+    enabled-by-default: true
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://host.docker.internal:4318/v1/traces}
+  metrics:
+    tags:
+      application: ${spring.application.name}

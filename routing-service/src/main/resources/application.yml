@@ -1,0 +1,56 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: routing-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  config:
+    import: optional:classpath:application-db.yml
+  datasource:
+    hikari:
+      schema: delivery_schema
+  jpa:
+    properties:
+      hibernate:
+        default_schema: delivery_schema
+
+routing:
+  rules:
+    - name: mobile
+      when:
+        producerId: mobile-app
+      destination: MOBILE_PIPELINE
+
+    - name: api
+      when:
+        producerId: api
+      destination: BATCH_PIPELINE
+
+    - name: default
+      destination: DEFAULT_DESTINATION
+
+management:
+  endpoints:
+    enabled-by-default: true
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://host.docker.internal:4318/v1/traces}
+  metrics:
+    tags:
+      application: ${spring.application.name}
